@@ -12,7 +12,20 @@ layout: default
         position: relative;
         background-image: url('{{ site.baseurl }}/{% if page.header-img %}{{ page.header-img }}{% else %}{{ site.header-img }}{% endif %}')
     }
-
+    .side-catalog{
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .side-catalog::-webkit-scrollbar {
+        display: none;
+    }
+    html::-webkit-scrollbar {
+        display: none;
+    }
+    html {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
     {% if page.header-mask %}
     header.intro-header .header-mask{
         width: 100%;
