@@ -16,7 +16,7 @@ tags:
 >
 > 感谢[Huxpro](https://github.com/huxpro)提供的博客模板
 
-# 1、问题来源
+### 1、问题来源
 使用SpringBoot 搭建api项目时，需要对api接口进行统一的解密和加密。
 加密解密时机：
 - 1、SpringMVC 套餐 ```@ControllerAdvice``` 、 ```HttpInputMessage```、```RequestBodyAdvice```
@@ -35,7 +35,7 @@ protected Object readInternal(Class<?> clazz, HttpInputMessage inputMessage)
 
 *好了，已经偏题了*
 项目中同时也是使用了Filter做请求log，于是出现了LogFilter中log不到请求参数的问题，理想状态是解密的Filter第一个被执行，后续再执行其他的Filter。
-# 2、面向Google编程
+### 2、面向Google编程
 google到排序的方法：
 - 1、根据filter名自然排序的顺序执行（测试不行）
 - 2、xml配置文件中配置filter的先后顺序（springboot还写xml？）
@@ -43,15 +43,15 @@ google到排序的方法：
 - 4、使用注解```@ServletComponentScan```(亲测不行，原因后续会提到)
 
 google没找到满意的解决方法，还是自己看下为什么不能排序吧。
-# 3、解决方法
+### 3、解决方法
 这里写下处理方法：
 添加```@Order```、```@Component```和```@WebFilter```即可，其他不需要处理。并且不能使用```@ServletComponentScan```，或者```@ServletComponentScan```的扫描范围不能包括想要排序的Filter
-# 4、排序分析
+### 4、排序分析
 1、filter执行链执行方式
 2、filter执行链的创建
 3、ServletContext中Filter的来源
 4、SpringBoo启动时如何处理Servlet的组件
 5、SpringBoot中Filter不同注册方式的区别
 6、@ServletComponentScan分析
-# 5、额外功能
-## 排除模式的Filter
+### 5、额外功能
+#### 排除模式的Filter
