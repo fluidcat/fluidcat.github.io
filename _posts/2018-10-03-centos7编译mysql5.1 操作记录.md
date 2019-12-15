@@ -23,7 +23,7 @@ uname -r
 ```
 ### 获取源码
 或者这里下载
-![mysql-5.1.72.zip](/files/mysql-5.1.72.zip)
+[mysql-5.1.72.zip](/files/mysql-5.1.72.zip)
 ```shell
 wget http://ftp.jaist.ac.jp/pub/mysql/Downloads/MySQL-5.1/mysql-5.1.57.tar.gz
 mkdir -p /usr/local/mysql1/data 
