@@ -70,17 +70,18 @@ private void internalDoFilter(ServletRequest request, ServletResponse response)
 
     // Call the next filter if there is one
     if (pos < n) {
+        // 获取并偏移下标
         ApplicationFilterConfig filterConfig = filters[pos++];
         try {
             Filter filter = filterConfig.getFilter();
             // ...
+            // 执行过滤器逻辑（递归）
             filter.doFilter(request, response, this);
-        } catch (Throwable e) {
-            // ...
-        }
-    }
+         }
     // ...
+    // 所有过滤器前置执行结束，执行servlet
     servlet.service(request, response);
+    // 执行servlet执行结束，递归出口
     // ...
 ```  
 这里看到```filters[pos++]```,这是Filter责任链模式实现的核心，从```filterChain```内维护的filter列表依次获取并执行。  
@@ -266,7 +267,7 @@ SpringBoot中注册Filter的方法笔者知道有三种方式：
 #### 6、@ServletComponentScan分析  
 emmmmmmm，通过```ServletComponentRegisteringPostProcessor```实现，直接贴代码吧
 ```
-/********************************** ServletComponentRegisteringPostProcessor ****************************************/
+/************************* ServletComponentRegisteringPostProcessor *******************************/
 class ServletComponentRegisteringPostProcessor implements BeanFactoryPostProcessor, ApplicationContextAware {
 	private static final List<ServletComponentHandler> HANDLERS;
 	static {
@@ -309,14 +310,14 @@ class ServletComponentRegisteringPostProcessor implements BeanFactoryPostProcess
        		builder.addPropertyValue("urlPatterns", extractUrlPatterns(attributes));
        		registry.registerBeanDefinition(name, builder.getBeanDefinition());
      }
-``
+```
 上述代码完了之后就是前面的流程了。嗯，端庄又优雅。  
 ### 5、额外功能
 #### 排除模式的Filter
 由前面那FilterMaps看到，Filter无法支持排除模式，但是又想像SpringMVC拦截器那样使用排除模式，那就自己加一个URL匹配吧
 
 贴一个demo
-``java
+```
 public abstract class OrderedExcludeModeFilter extends OncePerRequestFilter {
     /**
      * 排除URL模式.
@@ -377,7 +378,6 @@ public abstract class OrderedExcludeModeFilter extends OncePerRequestFilter {
     }
 
     protected abstract void doExcludeFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException;
-
 
     /**
      * 将传递进来的不需要过滤得路径集合的字符串格式化成一系列的正则规则
