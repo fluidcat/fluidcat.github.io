@@ -83,7 +83,7 @@ private void internalDoFilter(ServletRequest request, ServletResponse response)
         servlet.service(request, response);
         // ...
 ```  
-这里看到```filters[pos++]```,这是Filter责任链模式实现的核心，从```filterChain```内维护的filter列表一次获取并执行。  
+这里看到```filters[pos++]```,这是Filter责任链模式实现的核心，从```filterChain```内维护的filter列表依次获取并执行。  
 > Servlet的Filter责任链模式是通过filter列表和递归调用实现的。  
 
 于是我们得到一个结论：*filter的执行顺序取决与filter在```filterChain```的Filters列表的顺序，继续跟进Filters列表创建*
@@ -144,8 +144,8 @@ public static ApplicationFilterChain createFilterChain(ServletRequest request,
     }
 ```  
 继续断点往上跟进，根据如下调用栈找到是顺序的来源
-![调用栈](img/post-bg-filterMapsStackTraces.jpg)
-```ServletWebServerApplicationContext#selfInitialize```
+![调用栈](/img/post-bg-filterMapsStackTraces.jpg)  
+初始化:```ServletWebServerApplicationContext#selfInitialize```  
 ```
 	private void selfInitialize(ServletContext servletContext) throws ServletException {
 	    // 获取ServletContextInitializer，并依次执行
@@ -218,30 +218,33 @@ public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, bo
 上文子目录3知道，Servlet的组件通过ServletContextInitializer进行初始化与配置
 继续跟踪方法```getServletContextInitializerBeans```,定位到代码：
 ```
-   	public ServletContextInitializerBeans(ListableBeanFactory beanFactory, Class<? extends ServletContextInitializer>... initializerTypes) {
-   	    // 初始化类对象集合
-        this.initializers = new LinkedMultiValueMap<>();
-        
-        // 指定用于初始化Servlet组件的初始化类，这里指定了ServletContextInitializer
-        this.initializerTypes = (initializerTypes.length != 0) ? Arrays.asList(initializerTypes) : Collections.singletonList(ServletContextInitializer.class);
-        
-        // 根据初始化类从Spring容器获取bean到initializers集合
-   		addServletContextInitializerBeans(beanFactory);
-   		
-   		// 转换Spring容器中以非ServletContextInitializer形式存在的Servlet组件bean
-   		// 就是把Spring容器中已经有的的Filter对象、Servlet对象转换成ServletContextInitializer
-   		// 为啥要转换？因为统一了处理方式，SpringBoot与Servlet之间初始化时使用ServletContextInitializer完成bean的传递(将Spring容器的bean注册到Servlet上下文)
-   		// 这也是为什么直接仅使用@Component注解Filter与Servlet类后组件久能生效的原因
-   		addAdaptableBeans(beanFactory);
-   		
-   		// 关键代码！！！！！！！！！！！！！！！！！！！！
-   		// 对获取到的Servlet组件进行排序，且使用的是*AnnotationAwareOrderComparator*
-   		List<ServletContextInitializer> sortedInitializers = this.initializers.values().stream()
-   				.flatMap((value) -> value.stream().sorted(AnnotationAwareOrderComparator.INSTANCE))
-   				.collect(Collectors.toList());
-   		this.sortedList = Collections.unmodifiableList(sortedInitializers);
-   		logMappings(this.initializers);
-   	}
+public ServletContextInitializerBeans(ListableBeanFactory beanFactory,
+        Class<? extends ServletContextInitializer>... initializerTypes) {
+    // 初始化类对象集合
+    this.initializers = new LinkedMultiValueMap<>();
+    
+    // 指定用于初始化Servlet组件的初始化类，这里指定了ServletContextInitializer
+    this.initializerTypes = (initializerTypes.length != 0) ? Arrays.asList(initializerTypes) 
+        : Collections.singletonList(ServletContextInitializer.class);
+    
+    // 根据初始化类从Spring容器获取bean到initializers集合
+    addServletContextInitializerBeans(beanFactory);
+    
+    // 转换Spring容器中以非ServletContextInitializer形式存在的Servlet组件bean
+    // 就是把Spring容器中已经有的的Filter对象、Servlet对象转换成ServletContextInitializer
+    // 为啥要转换？因为统一了处理方式，SpringBoot与Servlet之间初始化时使用ServletContextInitializer完成bean的传递
+    // (将Spring容器的bean注册到Servlet上下文)
+    // 这也是为什么直接仅使用@Component注解Filter与Servlet类后组件久能生效的原因
+    addAdaptableBeans(beanFactory);
+    
+    // 关键代码！！！！！！！！！！！！！！！！！！！！
+    // 对获取到的Servlet组件进行排序，且使用的是*AnnotationAwareOrderComparator*
+    List<ServletContextInitializer> sortedInitializers = this.initializers.values().stream()
+            .flatMap((value) -> value.stream().sorted(AnnotationAwareOrderComparator.INSTANCE))
+            .collect(Collectors.toList());
+    this.sortedList = Collections.unmodifiableList(sortedInitializers);
+    logMappings(this.initializers);
+}
 ```
 至此，SpringBoot中Servlet组件的顺序确定了。  
 撒花~~~
