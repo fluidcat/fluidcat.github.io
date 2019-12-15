@@ -17,7 +17,7 @@ tags:
 > 感谢[Huxpro](https://github.com/huxpro)提供的博客模板
 
 ### Spring容器初始化概述
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Spring容器初始化的核心是`BeanFactory`的初始化，本文主要内容是注解的配置方式的BeanFactory的初始化。在容器整个初始化的过程中，无论是以前的xml文件配置还是这里的`Java类配置`，无非就是从配置源读取数据，然后从数据解析出`BeanDefinition`，接着注册到`BeanFactory`中。这个过程必须在容器实例化对象前完成，当然，如果开发者对某个bean的整个生命周期有足够的掌握，任何时候都可以进行这个类的初始化。但是这种情况势必会造成容器bean管理的混乱，所以还是建议按照Spring的Bean管理流程来管理Bean。还有如果是动态类，比如运用某些技术手段在运行时生成类的Bean，这种Bean肯定就是要动态注册到Spring容器，可以是定义成某个动态模块或使用子容器进行管理。
+Spring容器初始化的核心是`BeanFactory`的初始化，本文主要内容是注解的配置方式的BeanFactory的初始化。在容器整个初始化的过程中，无论是以前的xml文件配置还是这里的`Java类配置`，无非就是从配置源读取数据，然后从数据解析出`BeanDefinition`，接着注册到`BeanFactory`中。这个过程必须在容器实例化对象前完成，当然，如果开发者对某个bean的整个生命周期有足够的掌握，任何时候都可以进行这个类的初始化。但是这种情况势必会造成容器bean管理的混乱，所以还是建议按照Spring的Bean管理流程来管理Bean。还有如果是动态类，比如运用某些技术手段在运行时生成类的Bean，这种Bean肯定就是要动态注册到Spring容器，可以是定义成某个动态模块或使用子容器进行管理。
 ### 两种BeanDefintion解析方式
 有阅读过一些Spring源码的童鞋应该知道,`ApplicationContext`和`BeanFactory`并没有管理BeanDefintion的能力，BeanDefintion注册能力来自`BeanDefinitionRegistry`接口，如下的类签名 :
 ```java
