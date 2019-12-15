@@ -49,7 +49,7 @@ google没找到满意的解决方法，还是自己看下为什么不能排序�
 ### 4、排序分析
 #### 1、filter执行链执行方式  
 a. 通过断点进去```filterChain#doFilter```方法
-``
+```
     public void doFilter(ServletRequest request, ServletResponse response)
         throws IOException, ServletException {
 
@@ -62,9 +62,9 @@ a. 通过断点进去```filterChain#doFilter```方法
             internalDoFilter(request,response);
         }
     }
-`` 
+``` 
 b. 跟踪进入 internalDoFilter 可以看到如下关键代码 
-``
+```
 private void internalDoFilter(ServletRequest request, ServletResponse response)
         throws IOException, ServletException {
 
@@ -82,7 +82,7 @@ private void internalDoFilter(ServletRequest request, ServletResponse response)
         // ...
         servlet.service(request, response);
         // ...
-``  
+```  
 这里看到```filters[pos++]```,这是Filter责任链模式实现的核心，从```filterChain```内维护的filter列表一次获取并执行。  
 > Servlet的Filter责任链模式是通过filter列表和递归调用实现的。  
 
@@ -91,7 +91,7 @@ private void internalDoFilter(ServletRequest request, ServletResponse response)
 #### 2、Filters列表的创建  
 找到```ApplicationFilterChain#addFilter```方法，filters由外部添加，断点继续往找；
 找到```ApplicationFilterFactory#createFilterChain```方法，在这里创建处理链，如下：
-``java
+```
 public static ApplicationFilterChain createFilterChain(ServletRequest request,
             Wrapper wrapper, Servlet servlet) {
         // ...
@@ -124,11 +124,11 @@ public static ApplicationFilterChain createFilterChain(ServletRequest request,
         // Return the completed filter chain
         return filterChain;
     }
-``
+```
 这里也使用for循环遍历一个```filterMaps```,将符合的Filter加入Filters列表，意味着顺序是通过filterMaps传递过来的；  
 #### 3、ServletContext中FilterMaps的来源  
 断点发现FilterMaps的来源```StandardContext```两个方法，
-``java
+```
     public void addFilterMap(FilterMap filterMap) {
         validateFilterMap(filterMap);
         // 添加到filterMap
@@ -142,22 +142,22 @@ public static ApplicationFilterChain createFilterChain(ServletRequest request,
         filterMaps.addBefore(filterMap);
         fireContainerEvent("addFilterMap", filterMap);
     }
-``  
+```  
 继续断点往上跟进，根据如下调用栈找到是顺序的来源
 ![调用栈](img/post-bg-filterMapsStackTraces.jpg)
 ```ServletWebServerApplicationContext#selfInitialize```
-``java
+```
 	private void selfInitialize(ServletContext servletContext) throws ServletException {
 	    // 获取ServletContextInitializer，并依次执行
 		for (ServletContextInitializer beans : getServletContextInitializerBeans()) {
 			beans.onStartup(servletContext);
 		}
 	}
-``
+```  
 这里每执行一次Filter就往filterMaps添加一个元素，由此可见顺序的信息再一次有上层决定，这里的上层是指ServletContext的初始化。  
 在调用栈有几处关键的代码，这先按调用顺序贴一下，嫌多的可以跳过：  
 代码a：```DynamicRegistrationBean#register```
-``
+```
 	protected final void register(String description, ServletContext servletContext) {
 	    // 将真正的filter注册到ServletContext中，并返回一个registration对象，后续使用这个对象对filter的元数据进行配置
 		D registration = addRegistration(description, servletContext);
@@ -168,9 +168,9 @@ public static ApplicationFilterChain createFilterChain(ServletRequest request,
 		// 使用registration对filter进行配置(虽然就set一下数据，但是是关键数据)
 		configure(registration);
 	}
-``
+```
 代码b：```AbstractFilterRegistrationBean#configure```
-``java
+```
 protected void configure(FilterRegistration.Dynamic registration) {
         // 父类方法，set元数据initParams
 		super.configure(registration);
@@ -181,9 +181,9 @@ protected void configure(FilterRegistration.Dynamic registration) {
 						StringUtils.toStringArray(this.urlPatterns));
 		// ...
 	}
-``
+```  
 代码c：父类调用```super.configure(registration)```
-``
+```
     // 初始化asyncSupported，initParameters
     // 这里是springboot与servlet api的连接点之一（springboot如何传递filter的元数据到servlet api的），后续会用到 
 	protected void configure(D registration) {
@@ -192,10 +192,10 @@ protected void configure(FilterRegistration.Dynamic registration) {
 			registration.setInitParameters(this.initParameters);
 		}
 	}
-``  
+```  
 
 代码d: ```ApplicationFilterRegistration#addMappingForUrlPatterns```
-``java
+```
 public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter,String... urlPatterns) {
 
         // 创建FilterMap
@@ -212,12 +212,12 @@ public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, bo
             context.addFilterMapBefore(filterMap);
         }
     }
-``
+```
 
 #### 4、SpringBoot启动时如何处理初始化Servlet的组件
 上文子目录3知道，Servlet的组件通过ServletContextInitializer进行初始化与配置
 继续跟踪方法```getServletContextInitializerBeans```,定位到代码：
-``java
+```
    	public ServletContextInitializerBeans(ListableBeanFactory beanFactory, Class<? extends ServletContextInitializer>... initializerTypes) {
    	    // 初始化类对象集合
         this.initializers = new LinkedMultiValueMap<>();
@@ -242,7 +242,7 @@ public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, bo
    		this.sortedList = Collections.unmodifiableList(sortedInitializers);
    		logMappings(this.initializers);
    	}
-``
+```
 至此，SpringBoot中Servlet组件的顺序确定了。  
 撒花~~~
 
@@ -263,7 +263,7 @@ SpringBoot中注册Filter的方法笔者知道有三种方式：
 
 #### 6、@ServletComponentScan分析  
 emmmmmmm，通过```ServletComponentRegisteringPostProcessor```实现，直接贴代码吧
-``
+```
 /********************************** ServletComponentRegisteringPostProcessor ****************************************/
 class ServletComponentRegisteringPostProcessor implements BeanFactoryPostProcessor, ApplicationContextAware {
 	private static final List<ServletComponentHandler> HANDLERS;
@@ -400,6 +400,6 @@ public abstract class OrderedExcludeModeFilter extends OncePerRequestFilter {
         return str;
     }
 }
-``
+```
 
-#### 本文完，撒花~~~
+#### 本文完，撒花~~~ 欢迎指正
