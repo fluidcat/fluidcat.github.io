@@ -50,38 +50,38 @@ google没找到满意的解决方法，还是自己看下为什么不能排序�
 #### 1、filter执行链执行方式  
 a. 通过断点进去```filterChain#doFilter```方法
 ```
-    public void doFilter(ServletRequest request, ServletResponse response)
-        throws IOException, ServletException {
+public void doFilter(ServletRequest request, ServletResponse response)
+    throws IOException, ServletException {
 
-        if( Globals.IS_SECURITY_ENABLED ) {
-            // ...
-            internalDoFilter(req,res);
-            // ...
-            
-        } else {
-            internalDoFilter(request,response);
-        }
+    if( Globals.IS_SECURITY_ENABLED ) {
+        // ...
+        internalDoFilter(req,res);
+        // ...
+        
+    } else {
+        internalDoFilter(request,response);
     }
+}
 ``` 
 b. 跟踪进入 internalDoFilter 可以看到如下关键代码 
 ```
 private void internalDoFilter(ServletRequest request, ServletResponse response)
         throws IOException, ServletException {
 
-        // Call the next filter if there is one
-        if (pos < n) {
-            ApplicationFilterConfig filterConfig = filters[pos++];
-            try {
-                Filter filter = filterConfig.getFilter();
-                // ...
-                filter.doFilter(request, response, this);
-            } catch (Throwable e) {
-                // ...
-            }
+    // Call the next filter if there is one
+    if (pos < n) {
+        ApplicationFilterConfig filterConfig = filters[pos++];
+        try {
+            Filter filter = filterConfig.getFilter();
+            // ...
+            filter.doFilter(request, response, this);
+        } catch (Throwable e) {
+            // ...
         }
-        // ...
-        servlet.service(request, response);
-        // ...
+    }
+    // ...
+    servlet.service(request, response);
+    // ...
 ```  
 这里看到```filters[pos++]```,这是Filter责任链模式实现的核心，从```filterChain```内维护的filter列表依次获取并执行。  
 > Servlet的Filter责任链模式是通过filter列表和递归调用实现的。  
@@ -94,124 +94,123 @@ private void internalDoFilter(ServletRequest request, ServletResponse response)
 ```
 public static ApplicationFilterChain createFilterChain(ServletRequest request,
             Wrapper wrapper, Servlet servlet) {
-        // ...
-        // 创建处理链
-        filterChain = new ApplicationFilterChain();
-        
-        // ...
-        FilterMap filterMaps[] = context.findFilterMaps();
-        
-        // ...
-        // 循环从context找到的FilterMap
-        for (int i = 0; i < filterMaps.length; i++) {
-            // 判断filter是否符合当前请求 
-            if (!matchDispatcher(filterMaps[i] ,dispatcher)) {
-                continue;
-            }
-            if (!matchFiltersURL(filterMaps[i], requestPath))
-                continue;
-            // 获取真正的Filter，filterConfig保存了Filter
-            ApplicationFilterConfig filterConfig = (ApplicationFilterConfig)
-                context.findFilterConfig(filterMaps[i].getFilterName());
-            if (filterConfig == null) {
-                // FIXME - log configuration problem
-                continue;
-            }
-            // 添加到处理链
-            filterChain.addFilter(filterConfig);
+    // ...
+    // 创建处理链
+    filterChain = new ApplicationFilterChain();
+    
+    // ...
+    FilterMap filterMaps[] = context.findFilterMaps();
+    
+    // ...
+    // 循环从context找到的FilterMap
+    for (int i = 0; i < filterMaps.length; i++) {
+        // 判断filter是否符合当前请求 
+        if (!matchDispatcher(filterMaps[i] ,dispatcher)) {
+            continue;
         }
-        // ...
-        // Return the completed filter chain
-        return filterChain;
+        if (!matchFiltersURL(filterMaps[i], requestPath))
+            continue;
+        // 获取真正的Filter，filterConfig保存了Filter
+        ApplicationFilterConfig filterConfig = (ApplicationFilterConfig)
+            context.findFilterConfig(filterMaps[i].getFilterName());
+        if (filterConfig == null) {
+            // FIXME - log configuration problem
+            continue;
+        }
+        // 添加到处理链
+        filterChain.addFilter(filterConfig);
     }
+    // ...
+    // Return the completed filter chain
+    return filterChain;
+}
 ```
 这里也使用for循环遍历一个```filterMaps```,将符合的Filter加入Filters列表，意味着顺序是通过filterMaps传递过来的；  
 #### 3、ServletContext中FilterMaps的来源  
 断点发现FilterMaps的来源```StandardContext```两个方法，
 ```
-    public void addFilterMap(FilterMap filterMap) {
-        validateFilterMap(filterMap);
-        // 添加到filterMap
-        filterMaps.add(filterMap);
-        fireContainerEvent("addFilterMap", filterMap);
-    }
+public void addFilterMap(FilterMap filterMap) {
+    validateFilterMap(filterMap);
+    // 添加到filterMap
+    filterMaps.add(filterMap);
+    fireContainerEvent("addFilterMap", filterMap);
+}
 
-    public void addFilterMapBefore(FilterMap filterMap) {
-        validateFilterMap(filterMap);
-        // 添加到filterMaps
-        filterMaps.addBefore(filterMap);
-        fireContainerEvent("addFilterMap", filterMap);
-    }
+public void addFilterMapBefore(FilterMap filterMap) {
+    validateFilterMap(filterMap);
+    // 添加到filterMaps
+    filterMaps.addBefore(filterMap);
+    fireContainerEvent("addFilterMap", filterMap);
+}
 ```  
 继续断点往上跟进，根据如下调用栈找到是顺序的来源
 ![调用栈](/img/post-bg-filterMapsStackTraces.jpg)  
 初始化:```ServletWebServerApplicationContext#selfInitialize```  
 ```
-	private void selfInitialize(ServletContext servletContext) throws ServletException {
-	    // 获取ServletContextInitializer，并依次执行
-		for (ServletContextInitializer beans : getServletContextInitializerBeans()) {
-			beans.onStartup(servletContext);
-		}
-	}
+private void selfInitialize(ServletContext servletContext) throws ServletException {
+    // 获取ServletContextInitializer，并依次执行
+    for (ServletContextInitializer beans : getServletContextInitializerBeans()) {
+        beans.onStartup(servletContext);
+    }
+}
 ```  
 这里每执行一次Filter就往filterMaps添加一个元素，由此可见顺序的信息再一次有上层决定，这里的上层是指ServletContext的初始化。  
 在调用栈有几处关键的代码，这先按调用顺序贴一下，嫌多的可以跳过：  
 代码a：```DynamicRegistrationBean#register```
 ```
-	protected final void register(String description, ServletContext servletContext) {
-	    // 将真正的filter注册到ServletContext中，并返回一个registration对象，后续使用这个对象对filter的元数据进行配置
-		D registration = addRegistration(description, servletContext);
-		if (registration == null) {
-			logger.info(StringUtils.capitalize(description) + " was not registered (possibly already registered?)");
-			return;
-		}
-		// 使用registration对filter进行配置(虽然就set一下数据，但是是关键数据)
-		configure(registration);
-	}
+protected final void register(String description, ServletContext servletContext) {
+    // 将真正的filter注册到ServletContext中，并返回一个registration对象，后续使用这个对象对filter的元数据进行配置
+    D registration = addRegistration(description, servletContext);
+    if (registration == null) {
+        logger.info(StringUtils.capitalize(description) + " was not registered (possibly already registered?)");
+        return;
+    }
+    // 使用registration对filter进行配置(虽然就set一下数据，但是是关键数据)
+    configure(registration);
+}
 ```
 代码b：```AbstractFilterRegistrationBean#configure```
 ```
 protected void configure(FilterRegistration.Dynamic registration) {
-        // 父类方法，set元数据initParams
-		super.configure(registration);
-		// ...
-		
-		// 添加FilterMaps到ServletContext的实现
-		registration.addMappingForUrlPatterns(dispatcherTypes, this.matchAfter,
-						StringUtils.toStringArray(this.urlPatterns));
-		// ...
-	}
+    // 父类方法，set元数据initParams
+    super.configure(registration);
+    // ...
+    
+    // 添加FilterMaps到ServletContext的实现
+    registration.addMappingForUrlPatterns(dispatcherTypes, this.matchAfter,
+                    StringUtils.toStringArray(this.urlPatterns));
+    // ...
+}
 ```  
 代码c：父类调用```super.configure(registration)```
 ```
-    // 初始化asyncSupported，initParameters
-    // 这里是springboot与servlet api的连接点之一（springboot如何传递filter的元数据到servlet api的），后续会用到 
-	protected void configure(D registration) {
-		registration.setAsyncSupported(this.asyncSupported);
-		if (!this.initParameters.isEmpty()) {
-			registration.setInitParameters(this.initParameters);
-		}
-	}
+// 初始化asyncSupported，initParameters
+// 这里是springboot与servlet api的连接点之一（springboot如何传递filter的元数据到servlet api的），后续会用到 
+protected void configure(D registration) {
+    registration.setAsyncSupported(this.asyncSupported);
+    if (!this.initParameters.isEmpty()) {
+        registration.setInitParameters(this.initParameters);
+    }
+}
 ```  
 
 代码d: ```ApplicationFilterRegistration#addMappingForUrlPatterns```
 ```
 public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter,String... urlPatterns) {
+    // 创建FilterMap
+    // 我个人想法：从上文可知处理链使用FilterMaps生成，FilterMap的作用是方便请求进行匹配，而不用频繁读取Filter的元数据
+    // 某种程度上讲也起到解耦的作用，将框架的代码和开发者代码隔离。可参考FilterMap注释
+    FilterMap filterMap = new FilterMap();
+    filterMap.setFilterName(filterDef.getFilterName());
+    // ...
 
-        // 创建FilterMap
-        // 我个人想法：从上文可知处理链使用FilterMaps生成，FilterMap的作用是方便请求进行匹配，而不用频繁读取Filter的元数据
-        // 某种程度上讲也起到解耦的作用，将框架的代码和开发者代码隔离。可参考FilterMap注释
-        FilterMap filterMap = new FilterMap();
-        filterMap.setFilterName(filterDef.getFilterName());
-        // ...
-
-        // 添加到ServletContext
-        if (isMatchAfter) {
-            context.addFilterMap(filterMap);
-        } else {
-            context.addFilterMapBefore(filterMap);
-        }
+    // 添加到ServletContext
+    if (isMatchAfter) {
+        context.addFilterMap(filterMap);
+    } else {
+        context.addFilterMapBefore(filterMap);
     }
+}
 ```
 
 #### 4、SpringBoot启动时如何处理初始化Servlet的组件
