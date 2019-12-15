@@ -16,7 +16,7 @@ tags:
 >
 > 感谢[Huxpro](https://github.com/huxpro)提供的博客模板
 
-###1. 场景
+### 1. 场景
 起因：springboot项目打出可运行jar包，为减小jar体积方便更新，需要分离lib。
 过程：使用其他打包插件替换springboot的打包插件，顺便贴代码
 ```xml
@@ -158,6 +158,6 @@ String jarName = "xxxx.jar";
 
 **注意maven打包仍是最前面的配置**
 ### 5. 问题相关知识
-1、类加载机制
-2、jar包目录结构
-3、add directory entries （这里指eclipse导出jar包常见的问题）
+- 1、类加载机制
+- 2、jar包目录结构
+- 3、add directory entries （这里指eclipse导出jar包常见的问题）
