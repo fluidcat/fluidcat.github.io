@@ -64,14 +64,16 @@ java -jar TestDemo.jar
 ```
 出现异常:
 ```java
-org.springframework.beans.factory.BeanInitializationException: Could not load properties; nested exception is java.io.FileNotFoundException: class path resource [] cannot be resolved to URL because it does not exist
+org.springframework.beans.factory.BeanInitializationException: 
+Could not load properties; nested exception is java.io.FileNotFoundException: 
+class path resource [] cannot be resolved to URL because it does not exist
 ```
 找到异常代码：
 ```java
 ResourceUtils.getURL("classpath:").getPath()
 ```
-郁闷至极，不就是把lib包分离出来吗？代码正常启动说明lib包和classes的类都在classpath中，然而缺获取不到类根路径...
-###2. 问题原因
+郁闷至极，不就是把lib包分离出来吗？代码正常启动说明lib包和classes的类都在classpath中，然而缺获取不到类根路径...  
+### 2. 问题原因
 经过多次调试、google终于发现问题所在，下面是问题原因：
 首先上面代码`ResourceUtils.getURL("classpath:")`等价于`classLoader.getResource("")`,其中classLoader要根据环境而定不同环境可能不同；
 其次要理解`getResource`的含义：
@@ -95,11 +97,12 @@ String jarName = "xxxx.jar";
 会发现，jarentry中并没`""`这个目录资源（这是肯定的，都是空字符串了），所以前面的异常代码就抛异常了。
 
 那么问题来了，为什么springboot的打包插件又能正常运行？
-比较springboot打包的jar和上面打包的jar，发现jar包的目录结构有所差别：
-- 1、上面打包的jar包根路径直接是classes，即类路径的根路径
-- 2、springboot打包插件打包的jar是BOOT-INF、META-INF、org，此时类路径的根路径是BOOT-INF/classes
+比较springboot打包的jar和上文maven打包的jar，发现jar包的目录结构有所差别：
+- 1、上文maven打包的jar包根路径直接是classes，即类路径的根路径
+- 2、springboot打包插件打包的jar是BOOT-INF、META-INF、org，此时类路径的根路径是BOOT-INF/classes  
 
-这个根路径的差别与ClassLoader有关，第一的类型是`APPClassLoader`, 第二的类型是`LaunchedURLClassLoader`具体还是google下吧。第二情况的时候`getResource("")`等价于 `getResource("BOOT-INF/classes")`,所以springboot打包插件打包的jar能获得根路径。
+这个根路径的差别与ClassLoader有关，第一的类加载器是`APPClassLoader`, 第二的类加载器是`LaunchedURLClassLoader。
+第二情况的时候`getResource("")`等价于 `getResource("BOOT-INF/classes")`,所以springboot打包插件打包的jar能获得根路径。
 
 ### 3. 解决办法
 重新配置打包插件，仍然使用springboot打包插件打包，如下
